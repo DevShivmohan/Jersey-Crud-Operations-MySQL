@@ -10,6 +10,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.flywaydb.core.Flyway;
+
+import jersey.crud.operation.jersey_crud_operation.db.constants.DbConstants;
 import jersey.crud.operation.jersey_crud_operation.entity.Student;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -22,33 +25,22 @@ public class StudentDao {
 	private static Connection connection;
 
 	public static StudentDao getInstance() throws SQLException {
-		try {
-			Class.forName("com.mysql.jdbc.Driver");
-		} catch (ClassNotFoundException e) {
-			log.error(e.toString());
+		if (connection == null) {
+			try {
+				Class.forName(DbConstants.DB_DRIVER_CLASS_NAME);
+			} catch (ClassNotFoundException e) {
+				log.error(e.toString());
+			}
+			connection = DriverManager.getConnection(DbConstants.DB_URL, DbConstants.DB_USERNAME,
+					DbConstants.DB_PASSWORD);
 		}
-		if (connection == null)
-			connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/student", "root", "1010101Shiv@");
-		createTable();
-		if (studentDao == null)
+		if (studentDao == null) {
 			studentDao = new StudentDao();
-		return studentDao;
-	}
-
-	/**
-	 * create table initially
-	 */
-	private static void createTable() {
-		try {
-			Statement statement = connection.createStatement();
-			String query = "CREATE TABLE IF NOT EXISTS students (" + "stuId INT AUTO_INCREMENT NOT NULL,"
-					+ "  stuName VARCHAR(255) NULL," + "  stuAge INT NOT NULL," + "  stuEmail VARCHAR(255) NULL,"
-					+ "stuCapDate LONG NOT NULL," + "  CONSTRAINT pk_students PRIMARY KEY (stuId)" + ");";
-			boolean status = statement.execute(query);
-			log.info("Creating table query status " + status);
-		} catch (Exception e) {
-			log.error(e.toString());
+			Flyway flyway = Flyway.configure()
+					.dataSource(DbConstants.DB_URL, DbConstants.DB_USERNAME, DbConstants.DB_PASSWORD).load();
+			flyway.migrate();
 		}
+		return studentDao;
 	}
 
 	/**
@@ -59,15 +51,16 @@ public class StudentDao {
 	 */
 	public boolean save(Student student) {
 		try {
-			PreparedStatement preparedStatement = connection.prepareStatement(
-					"insert into students (stuId,stuName,stuAge,stuEmail,stuCapDate) values(?,?,?,?,?);");
+			PreparedStatement preparedStatement = connection.prepareStatement(DbConstants.REST_INSERT_STUDENT);
 			preparedStatement.setLong(1, student.getStuId());
 			preparedStatement.setString(2, student.getStuName());
 			preparedStatement.setInt(3, student.getStuAge());
 			preparedStatement.setString(4, student.getStuEmail());
 			preparedStatement.setLong(5, student.getStuCapDate().getTime());
-			preparedStatement.executeUpdate();
-			return true;
+			if (preparedStatement.executeUpdate() > 0)
+				return true;
+			else
+				return false;
 		} catch (Exception e) {
 			log.error(e.toString());
 			return false;
@@ -80,10 +73,10 @@ public class StudentDao {
 	 * @return
 	 */
 	public List<Student> getAllStudents() {
-		List<Student> students = new ArrayList<Student>();
+		List<Student> students = new ArrayList<>();
 		try {
 			Statement statement = connection.createStatement();
-			ResultSet resultSet = statement.executeQuery("select * from students;");
+			ResultSet resultSet = statement.executeQuery(DbConstants.REST_FETCH_STUDENTS);
 			while (resultSet.next())
 				students.add(new Student(resultSet.getInt(1), resultSet.getString(2), resultSet.getInt(3),
 						resultSet.getString(4), new Date(resultSet.getLong(5))));
@@ -103,9 +96,12 @@ public class StudentDao {
 	 */
 	public boolean remove(long stuId) {
 		try {
-			Statement statement = connection.createStatement();
-			statement.executeUpdate("delete from students where stuId=" + stuId + ";");
-			return true;
+			PreparedStatement preparedStatement = connection.prepareStatement(DbConstants.REST_DELETE_STUDENT);
+			preparedStatement.setLong(1, stuId);
+			if (preparedStatement.executeUpdate() > 0)
+				return true;
+			else
+				return false;
 		} catch (Exception e) {
 			log.error(e.toString());
 			return false;
@@ -120,11 +116,15 @@ public class StudentDao {
 	 */
 	public boolean update(Student student) {
 		try {
-			Statement statement = connection.createStatement();
-			statement.executeUpdate(
-					"update students set stuName='" + student.getStuName() + "',stuAge=" + student.getStuAge()
-							+ ",stuEmail='" + student.getStuEmail() + "' where stuId=" + student.getStuId() + ";");
-			return true;
+			PreparedStatement preparedStatement = connection.prepareStatement(DbConstants.REST_UPDATE_STUDENT);
+			preparedStatement.setString(1, student.getStuName());
+			preparedStatement.setInt(2, student.getStuAge());
+			preparedStatement.setString(3, student.getStuEmail());
+			preparedStatement.setLong(4, student.getStuId());
+			if (preparedStatement.executeUpdate() > 0)
+				return true;
+			else
+				return false;
 		} catch (Exception e) {
 			log.error(e.toString());
 			return false;
