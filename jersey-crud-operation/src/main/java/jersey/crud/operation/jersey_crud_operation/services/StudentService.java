@@ -205,15 +205,15 @@ public class StudentService {
 	 */
 	public Response getStudentsByAscDate() {
 		try {
+			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
 			List<Date> dates = new ArrayList<>();
 			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
+			for (Student student : StudentDao.getInstance().getAllStudents()) {
 				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
 						student.getStuEmail(), student.getStuCapDate()));
-			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
-			for (StudentResponseDTO studentResponseDTO : studentResponseDTOS) {
-				studentResponseDTOMap.put(studentResponseDTO.getStuCapDate(), studentResponseDTO);
-				dates.add(studentResponseDTO.getStuCapDate());
+				studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
+						student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
+				dates.add(student.getStuCapDate());
 			}
 			dates.sort((before, after) -> before.compareTo(after));
 			studentResponseDTOS = new ArrayList<>();
@@ -233,15 +233,15 @@ public class StudentService {
 	 */
 	public Response getStudentsByDesDate() {
 		try {
+			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
 			List<Date> dates = new ArrayList<>();
 			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
+			for (Student student : StudentDao.getInstance().getAllStudents()) {
 				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
 						student.getStuEmail(), student.getStuCapDate()));
-			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
-			for (StudentResponseDTO studentResponseDTO : studentResponseDTOS) {
-				studentResponseDTOMap.put(studentResponseDTO.getStuCapDate(), studentResponseDTO);
-				dates.add(studentResponseDTO.getStuCapDate());
+				studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
+						student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
+				dates.add(student.getStuCapDate());
 			}
 			dates.sort((before, after) -> after.compareTo(before));
 			studentResponseDTOS = new ArrayList<>();
