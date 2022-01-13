@@ -4,12 +4,14 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+import jersey.crud.operation.jersey_crud_operation.exceptions.TechnicalException;
 
 @Provider
-public class ExceptionMapperResponse implements ExceptionMapper<Exception> {
+public class TechnicalExceptionMapper implements ExceptionMapper<TechnicalException> {
 
 	@Override
-	public Response toResponse(Exception exception) {
+	public Response toResponse(TechnicalException exception) {
 		return Response.status(Status.GONE).entity(exception.getMessage()).build();
 	}
+
 }
