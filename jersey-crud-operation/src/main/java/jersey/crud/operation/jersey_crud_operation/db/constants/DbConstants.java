@@ -2,6 +2,11 @@ package jersey.crud.operation.jersey_crud_operation.db.constants;
 
 public class DbConstants {
 
+	/* Security authorization constants */
+	public static final String AUTHORIZATION_HEADER_KEY = "Authorization";
+	public static final String AUTHORIZATION_HEADER_PREFIX = "Basic ";
+	public static final String SECURED_URI_PREFIX = "students";
+
 	/* DB software driver Constants */
 	public static final String DB_DRIVER_CLASS_NAME = "com.mysql.cj.jdbc.Driver";
 
