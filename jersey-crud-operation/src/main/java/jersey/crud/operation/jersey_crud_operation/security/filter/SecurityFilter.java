@@ -23,6 +23,9 @@ public class SecurityFilter implements ContainerRequestFilter {
 	@Override
 	public void filter(ContainerRequestContext requestContext) throws IOException {
 		log.info(requestContext.getUriInfo().getPath());
+		/**
+		 * protect URL only start with students
+		 */
 		if (requestContext.getUriInfo().getPath().contains(DbConstants.SECURED_URI_PREFIX)) {
 			List<String> outHeaders = requestContext.getHeaders().get(DbConstants.AUTHORIZATION_HEADER_KEY);
 			if (outHeaders != null && outHeaders.size() > 0) {
@@ -45,5 +48,4 @@ public class SecurityFilter implements ContainerRequestFilter {
 			requestContext.abortWith(unAuthorizedResponse);
 		}
 	}
-
 }
