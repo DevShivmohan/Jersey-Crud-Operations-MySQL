@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
@@ -24,15 +23,15 @@ public class StudentDao {
 	private static StudentDao studentDao;
 	private static Connection connection;
 
-	public static StudentDao getInstance() throws SQLException {
+	public static StudentDao getInstance() {
 		if (connection == null) {
 			try {
 				Class.forName(DbConstants.DB_DRIVER_CLASS_NAME);
-			} catch (ClassNotFoundException e) {
+				connection = DriverManager.getConnection(DbConstants.DB_URL, DbConstants.DB_USERNAME,
+						DbConstants.DB_PASSWORD);
+			} catch (Exception e) {
 				log.error(e.toString());
 			}
-			connection = DriverManager.getConnection(DbConstants.DB_URL, DbConstants.DB_USERNAME,
-					DbConstants.DB_PASSWORD);
 		}
 		if (studentDao == null) {
 			studentDao = new StudentDao();

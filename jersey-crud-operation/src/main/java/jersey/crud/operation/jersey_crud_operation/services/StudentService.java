@@ -1,5 +1,6 @@
 package jersey.crud.operation.jersey_crud_operation.services;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -12,11 +13,12 @@ import jersey.crud.operation.jersey_crud_operation.dao.StudentDao;
 import jersey.crud.operation.jersey_crud_operation.dto.StudentRequestDTO;
 import jersey.crud.operation.jersey_crud_operation.dto.StudentResponseDTO;
 import jersey.crud.operation.jersey_crud_operation.entity.Student;
+import jersey.crud.operation.jersey_crud_operation.exceptions.StudentAlreadyExistsException;
+import jersey.crud.operation.jersey_crud_operation.exceptions.StudentNotFoundException;
+import jersey.crud.operation.jersey_crud_operation.exceptions.TechnicalException;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class StudentService {
 
@@ -33,29 +35,23 @@ public class StudentService {
 	 * 
 	 * @param studentRequestDTO
 	 * @return
+	 * @throws SQLException
 	 */
 	public Response addStudent(StudentRequestDTO studentRequestDTO) {
-		try {
-			Student student = new Student();
-			student.setStuName(studentRequestDTO.getStuName());
-			student.setStuAge(studentRequestDTO.getStuAge());
-			student.setStuEmail(studentRequestDTO.getStuEmail());
-			student.setStuCapDate(new Date());
-			for (Student student2 : StudentDao.getInstance().getAllStudents())
-				if (student2.getStuEmail().equalsIgnoreCase(student.getStuEmail()))
-					return Response.status(Status.NOT_ACCEPTABLE)
-							.entity("Student Email " + student.getStuEmail() + " is already exist in our database")
-							.build();
-			if (StudentDao.getInstance().save(student))
-				return Response.status(Status.OK).entity(new StudentResponseDTO(student.getStuName(),
-						student.getStuAge(), student.getStuEmail(), student.getStuCapDate())).build();
-			else
-				return Response.status(Status.EXPECTATION_FAILED)
-						.entity("Due to technical problem your request could not processed").build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		Student student = new Student();
+		student.setStuName(studentRequestDTO.getStuName());
+		student.setStuAge(studentRequestDTO.getStuAge());
+		student.setStuEmail(studentRequestDTO.getStuEmail());
+		student.setStuCapDate(new Date());
+		for (Student student2 : StudentDao.getInstance().getAllStudents())
+			if (student2.getStuEmail().equalsIgnoreCase(student.getStuEmail()))
+				throw new StudentAlreadyExistsException(
+						"Student Email " + student.getStuEmail() + " is already exist in our database");
+		if (StudentDao.getInstance().save(student))
+			return Response.status(Status.OK).entity(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+					student.getStuEmail(), student.getStuCapDate())).build();
+		else
+			throw new TechnicalException("Due to technical problem your request could not processed");
 	}
 
 	/**
@@ -66,36 +62,30 @@ public class StudentService {
 	 * @return
 	 */
 	public Response updateStudent(StudentRequestDTO studentRequestDTO, String stuEmail) {
-		try {
-			boolean isEmailExists = false, isEmailMatched = false;
-			Student student = new Student();
-			student.setStuName(studentRequestDTO.getStuName());
-			student.setStuAge(studentRequestDTO.getStuAge());
-			student.setStuEmail(studentRequestDTO.getStuEmail());
-			for (Student student2 : StudentDao.getInstance().getAllStudents()) {
-				if (student2.getStuEmail().equalsIgnoreCase(stuEmail)) {
-					isEmailMatched = true;
-					student.setStuId(student2.getStuId());
-					student.setStuCapDate(student2.getStuCapDate());
-				}
-				if (student2.getStuEmail().equalsIgnoreCase(studentRequestDTO.getStuEmail()))
-					isEmailExists = true;
+		boolean isEmailExists = false, isEmailMatched = false;
+		Student student = new Student();
+		student.setStuName(studentRequestDTO.getStuName());
+		student.setStuAge(studentRequestDTO.getStuAge());
+		student.setStuEmail(studentRequestDTO.getStuEmail());
+		for (Student student2 : StudentDao.getInstance().getAllStudents()) {
+			if (student2.getStuEmail().equalsIgnoreCase(stuEmail)) {
+				isEmailMatched = true;
+				student.setStuId(student2.getStuId());
+				student.setStuCapDate(student2.getStuCapDate());
 			}
-			if (!isEmailMatched)
-				return Response.status(Status.NOT_FOUND).entity("Given Email " + stuEmail + " not found").build();
-			if (isEmailExists && !stuEmail.equalsIgnoreCase(studentRequestDTO.getStuEmail()))
-				return Response.status(Status.NOT_ACCEPTABLE)
-						.entity("Email " + student.getStuEmail() + " is already exists in our database").build();
-			if (StudentDao.getInstance().update(student))
-				return Response.status(Status.OK).entity(new StudentResponseDTO(student.getStuName(),
-						student.getStuAge(), student.getStuEmail(), student.getStuCapDate())).build();
-			else
-				return Response.status(Status.EXPECTATION_FAILED)
-						.entity("Due to some technical problem request could not be processed").build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
+			if (student2.getStuEmail().equalsIgnoreCase(studentRequestDTO.getStuEmail()))
+				isEmailExists = true;
 		}
+		if (!isEmailMatched)
+			throw new StudentNotFoundException("Given Email " + stuEmail + " not found");
+		if (isEmailExists && !stuEmail.equalsIgnoreCase(studentRequestDTO.getStuEmail()))
+			throw new StudentAlreadyExistsException(
+					"Email " + student.getStuEmail() + " is already exists in our database");
+		if (StudentDao.getInstance().update(student))
+			return Response.status(Status.OK).entity(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+					student.getStuEmail(), student.getStuCapDate())).build();
+		else
+			throw new TechnicalException("Due to some technical problem request could not be processed");
 	}
 
 	/**
@@ -105,19 +95,13 @@ public class StudentService {
 	 * @return
 	 */
 	public Response deleteStudent(String stuEmail) {
-		try {
-			for (Student student : StudentDao.getInstance().getAllStudents())
-				if (student.getStuEmail().equalsIgnoreCase(stuEmail))
-					if (StudentDao.getInstance().remove(student.getStuId()))
-						return Response.status(Status.OK).entity(student).build();
-					else
-						return Response.status(Status.EXPECTATION_FAILED).entity("Expectation failed please try again")
-								.build();
-			return Response.status(Status.NOT_FOUND).entity("Record not found via email " + stuEmail).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		for (Student student : StudentDao.getInstance().getAllStudents())
+			if (student.getStuEmail().equalsIgnoreCase(stuEmail))
+				if (StudentDao.getInstance().remove(student.getStuId()))
+					return Response.status(Status.OK).entity(student).build();
+				else
+					throw new TechnicalException("Expectation failed please try again");
+		throw new StudentNotFoundException("Record not found via email " + stuEmail);
 	}
 
 	/**
@@ -126,16 +110,11 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getAllStudents() {
-		try {
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
-				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-						student.getStuEmail(), student.getStuCapDate()));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents())
+			studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+					student.getStuEmail(), student.getStuCapDate()));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 
 	/**
@@ -145,17 +124,12 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getStudentsByName(String stuName) {
-		try {
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
-				if (student.getStuName().equalsIgnoreCase(stuName))
-					studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-							student.getStuEmail(), student.getStuCapDate()));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents())
+			if (student.getStuName().equalsIgnoreCase(stuName))
+				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+						student.getStuEmail(), student.getStuCapDate()));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 
 	/**
@@ -165,17 +139,12 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getStudentsByEmail(String stuEmail) {
-		try {
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
-				if (student.getStuEmail().equalsIgnoreCase(stuEmail))
-					studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-							student.getStuEmail(), student.getStuCapDate()));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents())
+			if (student.getStuEmail().equalsIgnoreCase(stuEmail))
+				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+						student.getStuEmail(), student.getStuCapDate()));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 
 	/**
@@ -185,17 +154,12 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getStudentsByAge(int stuAge) {
-		try {
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents())
-				if (student.getStuAge() == stuAge)
-					studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-							student.getStuEmail(), student.getStuCapDate()));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
-		}
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents())
+			if (student.getStuAge() == stuAge)
+				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+						student.getStuEmail(), student.getStuCapDate()));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 
 	/**
@@ -204,26 +168,21 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getStudentsByAscDate() {
-		try {
-			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
-			List<Date> dates = new ArrayList<>();
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents()) {
-				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-						student.getStuEmail(), student.getStuCapDate()));
-				studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
-						student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
-				dates.add(student.getStuCapDate());
-			}
-			dates.sort((before, after) -> before.compareTo(after));
-			studentResponseDTOS = new ArrayList<>();
-			for (Date date : dates)
-				studentResponseDTOS.add(studentResponseDTOMap.get(date));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
+		Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
+		List<Date> dates = new ArrayList<>();
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents()) {
+			studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+					student.getStuEmail(), student.getStuCapDate()));
+			studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
+					student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
+			dates.add(student.getStuCapDate());
 		}
+		dates.sort((before, after) -> before.compareTo(after));
+		studentResponseDTOS = new ArrayList<>();
+		for (Date date : dates)
+			studentResponseDTOS.add(studentResponseDTOMap.get(date));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 
 	/**
@@ -232,25 +191,20 @@ public class StudentService {
 	 * @return
 	 */
 	public Response getStudentsByDesDate() {
-		try {
-			Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
-			List<Date> dates = new ArrayList<>();
-			List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
-			for (Student student : StudentDao.getInstance().getAllStudents()) {
-				studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
-						student.getStuEmail(), student.getStuCapDate()));
-				studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
-						student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
-				dates.add(student.getStuCapDate());
-			}
-			dates.sort((before, after) -> after.compareTo(before));
-			studentResponseDTOS = new ArrayList<>();
-			for (Date date : dates)
-				studentResponseDTOS.add(studentResponseDTOMap.get(date));
-			return Response.status(Status.OK).entity(studentResponseDTOS).build();
-		} catch (Exception e) {
-			log.error(e.toString());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Technical issue please try again").build();
+		Map<Date, StudentResponseDTO> studentResponseDTOMap = new HashMap<>();
+		List<Date> dates = new ArrayList<>();
+		List<StudentResponseDTO> studentResponseDTOS = new ArrayList<>();
+		for (Student student : StudentDao.getInstance().getAllStudents()) {
+			studentResponseDTOS.add(new StudentResponseDTO(student.getStuName(), student.getStuAge(),
+					student.getStuEmail(), student.getStuCapDate()));
+			studentResponseDTOMap.put(student.getStuCapDate(), new StudentResponseDTO(student.getStuName(),
+					student.getStuAge(), student.getStuEmail(), student.getStuCapDate()));
+			dates.add(student.getStuCapDate());
 		}
+		dates.sort((before, after) -> after.compareTo(before));
+		studentResponseDTOS = new ArrayList<>();
+		for (Date date : dates)
+			studentResponseDTOS.add(studentResponseDTOMap.get(date));
+		return Response.status(Status.OK).entity(studentResponseDTOS).build();
 	}
 }
